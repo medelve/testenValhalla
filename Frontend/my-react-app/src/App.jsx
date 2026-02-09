@@ -303,6 +303,7 @@ const ResultTable = ({ rows }) => {
 };
 
 function App() {
+  const [view, setView] = useState("home");
   const [activeLevelId, setActiveLevelId] = useState(null);
   const [builder, setBuilder] = useState(null);
   const [rows, setRows] = useState([]);
@@ -324,6 +325,11 @@ function App() {
     () => levelDefinitions.find((level) => level.id === activeLevelId),
     [activeLevelId]
   );
+  const completedCount = progress.completed.length;
+  const totalLevels = levelDefinitions.length;
+  const earnedXp = completedCount * 25;
+  const totalXp = totalLevels * 25;
+  const playerLevel = Math.max(1, Math.floor(earnedXp / 100) + 1);
 
   const sqlPreview = useMemo(() => {
     if (!activeLevel) return "";
@@ -395,6 +401,7 @@ function App() {
   const handleSelectLevel = (levelId) => {
     if (!isUnlocked(levelId)) return;
     setActiveLevelId(levelId);
+    setView("level");
   };
 
   const handleAddCondition = () => {
@@ -425,52 +432,134 @@ function App() {
     }));
   };
 
-  if (!activeLevel) {
+  if (view === "home") {
     return (
       <div className="app">
         <header className="hero">
-          <h1>⚔️ SQL Valhalla</h1>
-          <p>
-            Baue SQL-Abfragen durch Auswahl von Bausteinen und hilf deinem Vater,
-            das Dorf zu sichern.
+          <p className="hero-kicker">SQL lernen war noch nie so spielerisch</p>
+          <h1>SQL Valhalla</h1>
+          <p className="hero-subtitle">
+            Stelle dich den Missionen, verbessere deine SQL-Kenntnisse und führe
+            dein Dorf zu Ruhm und Ehre.
           </p>
         </header>
 
-        <section className="level-grid">
-          {levelDefinitions.map((level) => (
-            <button
-              key={level.id}
-              className={`level-card ${
-                isUnlocked(level.id) ? "" : "locked"
-              }`}
-              onClick={() => handleSelectLevel(level.id)}
-              disabled={!isUnlocked(level.id)}
-            >
-              <div className="level-card__header">
-                <span className="level-number">Level {level.id}</span>
-                <span className="level-status">
-                  {progress.completed.includes(level.id)
-                    ? "✅"
-                    : isUnlocked(level.id)
-                      ? "🗡️"
-                      : "🔒"}
-                </span>
-              </div>
-              <h3>{level.title}</h3>
-              <p>{level.task}</p>
+        <section className="home-grid">
+          <article className="home-card home-card--info">
+            <div className="home-badge">⚔️ SQL Valhalla</div>
+            <div className="home-emblem">🛡️</div>
+            <h2>Das Training der Krieger</h2>
+            <p>
+              Begleite deinen Vater durch Kapitel 1 und lerne SQL über echte
+              Aufgaben aus dem Alltag des Dorfes.
+            </p>
+            <div className="home-meta">
+              <span>{completedCount} / {totalLevels} Missionen geschafft</span>
+              <span>{earnedXp} XP gesammelt</span>
+            </div>
+          </article>
+
+          <article className="home-card home-card--actions">
+            <h2>Bereit für den Kampf?</h2>
+            <button className="primary" onClick={() => setView("missions")}>
+              Spielen
             </button>
-          ))}
+            <div className="home-actions">
+              <button className="ghost">Statistiken</button>
+              <button className="ghost">Einstellungen</button>
+            </div>
+            <div className="home-stats">
+              <div>
+                <strong>{totalLevels}</strong>
+                <span>Quests</span>
+              </div>
+              <div>
+                <strong>{earnedXp}</strong>
+                <span>XP</span>
+              </div>
+              <div>
+                <strong>{playerLevel}</strong>
+                <span>Level</span>
+              </div>
+            </div>
+          </article>
         </section>
       </div>
     );
   }
 
+  if (view === "missions" && !activeLevel) {
+    return (
+      <div className="app">
+        <nav className="top-nav">
+          <button className="ghost" onClick={() => setView("home")}>
+            🏠 Hauptmenü
+          </button>
+          <button className="ghost active">⚔️ Missionen</button>
+          <div className="nav-meta">
+            <span className="pill">💰 {earnedXp}</span>
+            <span className="pill">⭐ {earnedXp} XP</span>
+          </div>
+        </nav>
+        <header className="missions-hero">
+          <h1>🗡️ Missionen & Quests</h1>
+          <p>Wähle deine nächste Herausforderung in Kapitel 1.</p>
+        </header>
+        <section className="mission-grid">
+          {levelDefinitions.map((level) => {
+            const isCompleted = progress.completed.includes(level.id);
+            const locked = !isUnlocked(level.id);
+            return (
+              <button
+                key={level.id}
+                className={`mission-card ${locked ? "locked" : ""}`}
+                onClick={() => handleSelectLevel(level.id)}
+                disabled={locked}
+              >
+                <div className="mission-card__header">
+                  <span className="mission-level">Level {level.id}</span>
+                  <span className={`mission-status ${isCompleted ? "done" : ""}`}>
+                    {isCompleted ? "✓ Abgeschlossen" : locked ? "🔒 Gesperrt" : "🗡️ Offen"}
+                  </span>
+                </div>
+                <h3>{level.title}</h3>
+                <p>{level.task}</p>
+                <div className="mission-tags">
+                  <span>Kapitel 1</span>
+                  <span>+25 XP</span>
+                </div>
+              </button>
+            );
+          })}
+        </section>
+      </div>
+    );
+  }
+
+  if (!activeLevel) {
+    return null;
+  }
+
   if (activeLevel.id === 10) {
     return (
       <div className="app">
-        <button className="ghost" onClick={() => setActiveLevelId(null)}>
-          ← Zurück zur Übersicht
-        </button>
+        <nav className="top-nav">
+          <button
+            className="ghost"
+            onClick={() => {
+              setActiveLevelId(null);
+              setView("missions");
+            }}
+          >
+            ← Missionen
+          </button>
+          <button className="ghost" onClick={() => setView("home")}>
+            🏠 Hauptmenü
+          </button>
+          <div className="nav-meta">
+            <span className="pill">⭐ {earnedXp} XP</span>
+          </div>
+        </nav>
         <section className="level-screen">
           <img
             className="scene-image"
@@ -508,9 +597,23 @@ function App() {
 
   return (
     <div className="app">
-      <button className="ghost" onClick={() => setActiveLevelId(null)}>
-        ← Zurück zur Übersicht
-      </button>
+        <nav className="top-nav">
+          <button
+            className="ghost"
+            onClick={() => {
+              setActiveLevelId(null);
+              setView("missions");
+            }}
+          >
+            ← Missionen
+          </button>
+          <button className="ghost" onClick={() => setView("home")}>
+            🏠 Hauptmenü
+          </button>
+          <div className="nav-meta">
+            <span className="pill">⭐ {earnedXp} XP</span>
+          </div>
+        </nav>
       <section className="level-screen">
         <img
           className="scene-image"
