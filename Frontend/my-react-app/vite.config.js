@@ -11,6 +11,12 @@ export default defineConfig({
   server: {
     fs: {
       allow: [resolve(__dirname, ".."), resolve(__dirname, "../..")]
+    },
+    proxy: {
+      "/api": {
+        target: "http://localhost:5126",
+        changeOrigin: true
+      }
     }
   }
 });

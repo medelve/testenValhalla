@@ -360,7 +360,7 @@ function App() {
     setLoading(true);
     setFeedback(null);
     try {
-      const response = await fetch("http://localhost:5126/api/game/sql", {
+      const response = await fetch("/api/game/sql", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ level: activeLevel.id, query: sqlPreview })
