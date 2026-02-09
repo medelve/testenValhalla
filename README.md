@@ -1,0 +1,4 @@
+# SQL-Valhalla
+A README file contains descriptive information about the content of a directory in which the file is located. The scope of the information generally includes the files of the directory, and may include descendant directories, or even the full directory tree. The name is intended to draw a user's attention to important and orientational information about the directory content. A rule of thumb for one unfamiliar with the content of a directory is to read the README file before other files. Although the name README is often used, there are many other similar names used for the same purpose including "Read Me" and "READ.ME". Sometimes the file name includes an extension to indicate the file format such as "README.txt" for plain text or "README.md" for Markdown.[1] The file's name is often all caps.
+
+A README file in an archive acts the same as in a directory since an archive is like a directory that is stored as a single file.
