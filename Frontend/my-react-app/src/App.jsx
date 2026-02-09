@@ -186,6 +186,35 @@ const connectorOptions = ["AND", "OR"];
 
 const progressKey = "sql-valhalla-progress";
 
+const tableSamples = {
+  users: {
+    columns: ["id", "username", "pounds", "created"],
+    rows: [
+      { id: 1, username: "Ragnar", pounds: 214, created: "2024-01-05" },
+      { id: 2, username: "Bjorn", pounds: 195, created: "2024-01-08" },
+      { id: 3, username: "Freya", pounds: 247, created: "2024-01-12" },
+      { id: 4, username: "Erik", pounds: 189, created: "2024-01-15" },
+      { id: 5, username: "Astrid", pounds: 203, created: "2024-01-18" }
+    ]
+  },
+  orders: {
+    columns: ["id", "user_id", "amount", "status", "order_date"],
+    rows: [
+      { id: 101, user_id: 1, amount: 320, status: "paid", order_date: "2024-02-01" },
+      { id: 102, user_id: 2, amount: 120, status: "open", order_date: "2024-02-03" },
+      { id: 103, user_id: 4, amount: 560, status: "paid", order_date: "2024-02-05" }
+    ]
+  },
+  products: {
+    columns: ["id", "name", "category", "price", "stock"],
+    rows: [
+      { id: 501, name: "Langschwert", category: "Waffen", price: 120, stock: 14 },
+      { id: 502, name: "Schild", category: "Rüstung", price: 90, stock: 22 },
+      { id: 503, name: "Heiltrank", category: "Alchemie", price: 35, stock: 64 }
+    ]
+  }
+};
+
 const emptyCondition = (column = "", operator = "=", value = "", connector = "AND") => ({
   column,
   operator,
@@ -307,6 +336,7 @@ function App() {
   const [activeLevelId, setActiveLevelId] = useState(null);
   const [builder, setBuilder] = useState(null);
   const [rows, setRows] = useState([]);
+  const [activeTable, setActiveTable] = useState("users");
   const [feedback, setFeedback] = useState(null);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(() => {
@@ -596,277 +626,336 @@ function App() {
   }
 
   return (
-    <div className="app">
-        <nav className="top-nav">
-          <button
-            className="ghost"
-            onClick={() => {
-              setActiveLevelId(null);
-              setView("missions");
-            }}
-          >
-            ← Missionen
-          </button>
-          <button className="ghost" onClick={() => setView("home")}>
-            🏠 Hauptmenü
-          </button>
-          <div className="nav-meta">
-            <span className="pill">⭐ {earnedXp} XP</span>
-          </div>
-        </nav>
-      <section className="level-screen">
-        <img
-          className="scene-image"
-          src={getSceneForLevel(activeLevel.id)}
-          alt={`Szene Level ${activeLevel.id}`}
-          onError={(event) => {
-            event.currentTarget.src = fallbackScene;
+    <div className="app level-app">
+      <nav className="top-nav">
+        <button
+          className="ghost"
+          onClick={() => {
+            setActiveLevelId(null);
+            setView("missions");
           }}
-        />
-        <div className="level-header">
-          <div>
-            <span className="chapter">{activeLevel.chapter}</span>
-            <h2>Level {activeLevel.id}: {activeLevel.title}</h2>
-          </div>
-          <div className="progress-pill">
-            Freigeschaltet bis Level {progress.unlockedLevel}
-          </div>
+        >
+          ← Missionen
+        </button>
+        <button className="ghost" onClick={() => setView("home")}>
+          🏠 Hauptmenü
+        </button>
+        <div className="nav-meta">
+          <span className="pill">💰 {earnedXp}</span>
+          <span className="pill">⭐ {earnedXp} XP</span>
         </div>
-        <div className="story-box">
-          <p>{activeLevel.story}</p>
+      </nav>
+
+      <header className="level-hero">
+        <div>
+          <p className="level-hero__kicker">SQL Valhalla Training</p>
+          <h2>Mission: {activeLevel.title}</h2>
         </div>
-        <div className="task-box">
-          <strong>Aufgabe:</strong>
-          <p>{activeLevel.task}</p>
+        <div className="hero-actions">
+          <button className="primary">💡 Tip</button>
+          <button className="ghost">🗺️ ER Diagram</button>
         </div>
+      </header>
 
-        <div className="builder">
-          <h3>Query-Builder</h3>
-          <div className="builder-section">
-            <span className="builder-label">SELECT</span>
-            <div className="builder-options">
-              {builder?.selectAll !== undefined && (
-                <label className="checkbox">
-                  <input
-                    type="checkbox"
-                    checked={builder.selectAll}
-                    onChange={(event) =>
-                      setBuilder((prev) => ({
-                        ...prev,
-                        selectAll: event.target.checked,
-                        selectedColumns: []
-                      }))
-                    }
-                  />
-                  Alle Spalten (*)
-                </label>
-              )}
-              {!builder?.selectAll &&
-                activeLevel.selectColumns
-                  ?.filter((column) => column !== "*")
-                  .map((column) => (
-                    <label key={column} className="checkbox">
-                      <input
-                        type="checkbox"
-                        checked={builder.selectedColumns.includes(column)}
-                        onChange={(event) => {
-                          const selected = event.target.checked;
-                          setBuilder((prev) => {
-                            const next = selected
-                              ? [...prev.selectedColumns, column]
-                              : prev.selectedColumns.filter(
-                                  (value) => value !== column
-                                );
-                            return { ...prev, selectedColumns: next };
-                          });
-                        }}
-                      />
-                      {column}
-                    </label>
-                  ))}
-            </div>
-          </div>
-
-          <div className="builder-section">
-            <span className="builder-label">FROM</span>
-            <div className="builder-options">
-              <select
-                value={builder?.table ?? ""}
-                onChange={(event) =>
-                  setBuilder((prev) => ({ ...prev, table: event.target.value }))
-                }
-              >
-                <option value={activeLevel.table}>{activeLevel.table}</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="builder-section">
-            <div className="builder-header">
-              <span className="builder-label">WHERE</span>
-              {activeLevel.whereColumns?.length > 0 && (
-                <button className="ghost" onClick={handleAddCondition}>
-                  + Filter hinzufügen
+      <div className="level-layout">
+        <aside className="sidebar">
+          <div className="sidebar-card">
+            <h3>📊 Datenbank Tabellen</h3>
+            <div className="tab-row">
+              {Object.keys(tableSamples).map((tableKey) => (
+                <button
+                  key={tableKey}
+                  className={`tab ${activeTable === tableKey ? "active" : ""}`}
+                  onClick={() => setActiveTable(tableKey)}
+                >
+                  {tableKey}
                 </button>
-              )}
+              ))}
             </div>
-            {activeLevel.whereColumns?.length === 0 && (
-              <p className="helper-text">
-                Für dieses Level sind keine Filter notwendig.
-              </p>
-            )}
-            {builder?.conditions.map((condition, index) => (
-              <div key={`condition-${index}`} className="condition-row">
-                {index > 0 && (
+            <div className="table-preview">
+              <p className="table-title">Tabelle: {activeTable}</p>
+              <table>
+                <thead>
+                  <tr>
+                    {tableSamples[activeTable].columns.map((column) => (
+                      <th key={column}>{column}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tableSamples[activeTable].rows.map((row, rowIndex) => (
+                    <tr key={`${activeTable}-row-${rowIndex}`}>
+                      {tableSamples[activeTable].columns.map((column) => (
+                        <td key={`${activeTable}-${rowIndex}-${column}`}>
+                          {row[column]}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </aside>
+
+        <section className="level-screen content">
+          <img
+            className="scene-image"
+            src={getSceneForLevel(activeLevel.id)}
+            alt={`Szene Level ${activeLevel.id}`}
+            onError={(event) => {
+              event.currentTarget.src = fallbackScene;
+            }}
+          />
+          <div className="level-header">
+            <div>
+              <span className="chapter">{activeLevel.chapter}</span>
+              <h2>Level {activeLevel.id}: {activeLevel.title}</h2>
+            </div>
+            <div className="progress-pill">
+              Freigeschaltet bis Level {progress.unlockedLevel}
+            </div>
+          </div>
+          <div className="story-box dialogue-card">
+            <div className="dialogue-avatar">🛡️</div>
+            <div>
+              <p className="dialogue-name">Bjorn der Schmied sagt:</p>
+              <p>{activeLevel.story}</p>
+            </div>
+          </div>
+          <div className="task-box">
+            <strong>Aufgabe</strong>
+            <p>{activeLevel.task}</p>
+          </div>
+
+          <div className="builder">
+            <h3>Query-Builder</h3>
+            <div className="builder-section">
+              <span className="builder-label">SELECT</span>
+              <div className="builder-options">
+                {builder?.selectAll !== undefined && (
+                  <label className="checkbox">
+                    <input
+                      type="checkbox"
+                      checked={builder.selectAll}
+                      onChange={(event) =>
+                        setBuilder((prev) => ({
+                          ...prev,
+                          selectAll: event.target.checked,
+                          selectedColumns: []
+                        }))
+                      }
+                    />
+                    Alle Spalten (*)
+                  </label>
+                )}
+                {!builder?.selectAll &&
+                  activeLevel.selectColumns
+                    ?.filter((column) => column !== "*")
+                    .map((column) => (
+                      <label key={column} className="checkbox">
+                        <input
+                          type="checkbox"
+                          checked={builder.selectedColumns.includes(column)}
+                          onChange={(event) => {
+                            const selected = event.target.checked;
+                            setBuilder((prev) => {
+                              const next = selected
+                                ? [...prev.selectedColumns, column]
+                                : prev.selectedColumns.filter(
+                                    (value) => value !== column
+                                  );
+                              return { ...prev, selectedColumns: next };
+                            });
+                          }}
+                        />
+                        {column}
+                      </label>
+                    ))}
+              </div>
+            </div>
+
+            <div className="builder-section">
+              <span className="builder-label">FROM</span>
+              <div className="builder-options">
+                <select
+                  value={builder?.table ?? ""}
+                  onChange={(event) =>
+                    setBuilder((prev) => ({ ...prev, table: event.target.value }))
+                  }
+                >
+                  <option value={activeLevel.table}>{activeLevel.table}</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="builder-section">
+              <div className="builder-header">
+                <span className="builder-label">WHERE</span>
+                {activeLevel.whereColumns?.length > 0 && (
+                  <button className="ghost" onClick={handleAddCondition}>
+                    + Filter hinzufügen
+                  </button>
+                )}
+              </div>
+              {activeLevel.whereColumns?.length === 0 && (
+                <p className="helper-text">
+                  Für dieses Level sind keine Filter notwendig.
+                </p>
+              )}
+              {builder?.conditions.map((condition, index) => (
+                <div key={`condition-${index}`} className="condition-row">
+                  {index > 0 && (
+                    <select
+                      value={condition.connector}
+                      onChange={(event) =>
+                        handleConditionChange(
+                          index,
+                          "connector",
+                          event.target.value
+                        )
+                      }
+                    >
+                      {connectorOptions.map((connector) => (
+                        <option key={connector} value={connector}>
+                          {connector}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   <select
-                    value={condition.connector}
+                    value={condition.column}
                     onChange={(event) =>
                       handleConditionChange(
                         index,
-                        "connector",
+                        "column",
                         event.target.value
                       )
                     }
                   >
-                    {connectorOptions.map((connector) => (
-                      <option key={connector} value={connector}>
-                        {connector}
+                    {activeLevel.whereColumns.map((column) => (
+                      <option key={column} value={column}>
+                        {column}
                       </option>
                     ))}
                   </select>
-                )}
-                <select
-                  value={condition.column}
-                  onChange={(event) =>
-                    handleConditionChange(
-                      index,
-                      "column",
-                      event.target.value
-                    )
-                  }
-                >
-                  {activeLevel.whereColumns.map((column) => (
-                    <option key={column} value={column}>
-                      {column}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={condition.operator}
-                  onChange={(event) =>
-                    handleConditionChange(
-                      index,
-                      "operator",
-                      event.target.value
-                    )
-                  }
-                >
-                  {operatorOptions.map((operator) => (
-                    <option key={operator} value={operator}>
-                      {operator}
-                    </option>
-                  ))}
-                </select>
-                {condition.operator !== "IS NULL" && (
                   <select
-                    value={condition.value}
+                    value={condition.operator}
                     onChange={(event) =>
-                      handleConditionChange(index, "value", event.target.value)
+                      handleConditionChange(
+                        index,
+                        "operator",
+                        event.target.value
+                      )
                     }
                   >
-                    <option value="">Wert wählen</option>
-                    {(activeLevel.valueOptions?.[condition.column] ?? []).map(
-                      (option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      )
-                    )}
+                    {operatorOptions.map((operator) => (
+                      <option key={operator} value={operator}>
+                        {operator}
+                      </option>
+                    ))}
                   </select>
-                )}
-                <button
-                  className="ghost"
-                  onClick={() => handleRemoveCondition(index)}
-                >
-                  Entfernen
-                </button>
-              </div>
-            ))}
-          </div>
+                  {condition.operator !== "IS NULL" && (
+                    <select
+                      value={condition.value}
+                      onChange={(event) =>
+                        handleConditionChange(index, "value", event.target.value)
+                      }
+                    >
+                      <option value="">Wert wählen</option>
+                      {(activeLevel.valueOptions?.[condition.column] ?? []).map(
+                        (option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        )
+                      )}
+                    </select>
+                  )}
+                  <button
+                    className="ghost"
+                    onClick={() => handleRemoveCondition(index)}
+                  >
+                    Entfernen
+                  </button>
+                </div>
+              ))}
+            </div>
 
-          {activeLevel.orderBy && (
-            <div className="builder-section">
-              <span className="builder-label">ORDER BY</span>
-              <div className="builder-options">
-                <label className="checkbox">
-                  <input
-                    type="checkbox"
-                    checked={builder?.orderBy?.active ?? false}
-                    disabled={activeLevel.orderBy.required}
+            {activeLevel.orderBy && (
+              <div className="builder-section">
+                <span className="builder-label">ORDER BY</span>
+                <div className="builder-options">
+                  <label className="checkbox">
+                    <input
+                      type="checkbox"
+                      checked={builder?.orderBy?.active ?? false}
+                      disabled={activeLevel.orderBy.required}
+                      onChange={(event) =>
+                        setBuilder((prev) => ({
+                          ...prev,
+                          orderBy: {
+                            ...prev.orderBy,
+                            active: event.target.checked
+                          }
+                        }))
+                      }
+                    />
+                    Sortierung aktivieren
+                  </label>
+                  <select
+                    value={builder?.orderBy?.column ?? ""}
+                    onChange={(event) =>
+                      setBuilder((prev) => ({
+                        ...prev,
+                        orderBy: { ...prev.orderBy, column: event.target.value }
+                      }))
+                    }
+                  >
+                    {activeLevel.orderBy.columns.map((column) => (
+                      <option key={column} value={column}>
+                        {column}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={builder?.orderBy?.direction ?? "ASC"}
                     onChange={(event) =>
                       setBuilder((prev) => ({
                         ...prev,
                         orderBy: {
                           ...prev.orderBy,
-                          active: event.target.checked
+                          direction: event.target.value
                         }
                       }))
                     }
-                  />
-                  Sortierung aktivieren
-                </label>
-                <select
-                  value={builder?.orderBy?.column ?? ""}
-                  onChange={(event) =>
-                    setBuilder((prev) => ({
-                      ...prev,
-                      orderBy: { ...prev.orderBy, column: event.target.value }
-                    }))
-                  }
-                >
-                  {activeLevel.orderBy.columns.map((column) => (
-                    <option key={column} value={column}>
-                      {column}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={builder?.orderBy?.direction ?? "ASC"}
-                  onChange={(event) =>
-                    setBuilder((prev) => ({
-                      ...prev,
-                      orderBy: {
-                        ...prev.orderBy,
-                        direction: event.target.value
-                      }
-                    }))
-                  }
-                >
-                  <option value="ASC">ASC</option>
-                  <option value="DESC">DESC</option>
-                </select>
+                  >
+                    <option value="ASC">ASC</option>
+                    <option value="DESC">DESC</option>
+                  </select>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-
-        <div className="preview">
-          <div className="preview-header">
-            <h3>Live SQL Preview</h3>
-            <span className="muted">Nur Lesen</span>
+            )}
           </div>
-          <pre>{sqlPreview}</pre>
-          <button onClick={handleCheck} disabled={loading}>
-            {loading ? "Prüfe..." : "Abfrage prüfen"}
-          </button>
-          {feedback && <div className="feedback">{feedback}</div>}
-        </div>
 
-        <div className="result">
-          <h3>Ergebnis-Preview</h3>
-          <ResultTable rows={rows} />
-        </div>
-      </section>
+          <div className="preview">
+            <div className="preview-header">
+              <h3>Live SQL Preview</h3>
+              <span className="muted">Nur Lesen</span>
+            </div>
+            <pre>{sqlPreview}</pre>
+            <button onClick={handleCheck} disabled={loading}>
+              {loading ? "Prüfe..." : "Abfrage prüfen"}
+            </button>
+            {feedback && <div className="feedback">{feedback}</div>}
+          </div>
+
+          <div className="result">
+            <h3>Ergebnis-Preview</h3>
+            <ResultTable rows={rows} />
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
